@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>家庭花园 3D</title>
+<style>
+  :root {
+    --bg: rgba(250, 248, 243, 0.92); --fg: #2b2a27; --muted: #6d6a62; --accent: #7a3b2a; --line: rgba(0, 0, 0, 0.1);
+    --chip: rgba(255, 255, 255, 0.86); --chip-on: #7a3b2a; --chip-on-fg: #fff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: rgba(32, 31, 29, 0.9); --fg: #eceae4; --muted: #a8a49a; --accent: #d98c6c; --line: rgba(255, 255, 255, 0.12);
+      --chip: rgba(40, 39, 36, 0.85); --chip-on: #d98c6c; --chip-on-fg: #1d1c1a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: rgba(32, 31, 29, 0.9); --fg: #eceae4; --muted: #a8a49a; --accent: #d98c6c; --line: rgba(255, 255, 255, 0.12);
+    --chip: rgba(40, 39, 36, 0.85); --chip-on: #d98c6c; --chip-on-fg: #1d1c1a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #c4d2dc; color: var(--fg);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  #app, canvas { position: fixed; inset: 0; display: block; touch-action: none; }
+  .card { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  #title { position: fixed; top: 12px; left: 12px; padding: 8px 14px; }
+  #title h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.04em; }
+  #title p { margin: 0; font-size: 12px; color: var(--muted); }
+  #topRight { position: fixed; top: 12px; right: 12px; display: flex; gap: 8px; align-items: flex-start; }
+  button, select { font: inherit; color: var(--fg); background: var(--chip); border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: var(--accent); }
+  #compass { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+  #compass span { display: block; font-weight: 700; color: var(--accent); line-height: 1; }
+  #compass span::before { content: "▲"; display: block; font-size: 10px; text-align: center; margin-bottom: -2px; }
+  #panel { position: fixed; top: 62px; right: 12px; width: 240px; padding: 12px 14px; display: none; }
+  body.panel-open #panel { display: block; }
+  #panel h3 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 500; }
+  #panel label { display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; }
+  #panel .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #panel input[type=range] { width: 100%; accent-color: var(--accent); }
+  #panel input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+  #panel hr { border: 0; border-top: 1px solid var(--line); margin: 10px 0; }
+  #timeLabel { font-variant-numeric: tabular-nums; font-weight: 600; }
+  #bottom { position: fixed; left: 0; right: 0; bottom: 0; padding: 0 12px 12px; pointer-events: none; }
+  #views { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 6px; pointer-events: auto; scrollbar-width: none; }
+  #views::-webkit-scrollbar { display: none; }
+  #views button.on { background: var(--chip-on); color: var(--chip-on-fg); border-color: var(--chip-on); }
+  #hintRow { display: flex; gap: 8px; align-items: center; pointer-events: auto; flex-wrap: wrap; }
+  #hint { font-size: 12px; color: var(--muted); padding: 4px 10px; }
+  #modeBtn { font-weight: 600; }
+  #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+  .label { position: absolute; left: 0; top: 0; padding: 2px 8px; font-size: 12px; border-radius: 6px; white-space: nowrap;
+    background: rgba(255, 255, 255, 0.82); color: #2b2a27; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18); transition: opacity 0.2s; }
+  .label::after { content: ""; position: absolute; left: 50%; bottom: -4px; margin-left: -4px; border: 4px solid transparent;
+    border-bottom: 0; border-top-color: rgba(255, 255, 255, 0.82); }
+  #joy { position: fixed; left: 24px; bottom: 120px; width: 120px; height: 120px; border-radius: 50%; display: none;
+    background: rgba(255, 255, 255, 0.22); border: 2px solid rgba(255, 255, 255, 0.55); touch-action: none; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.75); }
+  @media (pointer: coarse) { body.walking #joy { display: block; } }
+  #loading { position: fixed; inset: 0; display: grid; place-items: center; background: #e9e6df; color: #6d6a62; font-size: 15px;
+    transition: opacity 0.5s; z-index: 5; }
+  body.ready #loading { opacity: 0; pointer-events: none; }
+  @media (max-width: 600px) {
+    #title { padding: 6px 10px; } #title h1 { font-size: 14px; } #title p { display: none; }
+    #panel { left: 12px; right: 12px; width: auto; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="labels"></div>
+<div id="loading">正在生成花园……</div>
+
+<div id="title" class="card">
+  <h1>松阳 · 家庭花园 3D</h1>
+  <p>按 CAD 平面图 1:1 建模（单位：米）</p>
+</div>
+
+<div id="topRight">
+  <button id="compass" class="card" title="指北"><span>北</span></button>
+  <button id="panelToggle" class="card">设置</button>
+</div>
+
+<div id="panel" class="card">
+  <h3>时间</h3>
+  <div class="row"><input id="time" type="range" min="6" max="20" step="0.25" value="15.5"><span id="timeLabel">15:30</span></div>
+  <hr>
+  <label><input id="optLabels" type="checkbox" checked> 显示标注</label>
+  <label><input id="optPlan" type="checkbox"> 叠加原平面图</label>
+  <label><input id="optPlants" type="checkbox" checked> 显示植物</label>
+  <label><input id="optWind" type="checkbox" checked> 微风摆动</label>
+  <hr>
+  <div class="row"><span>画质</span>
+    <select id="quality"><option value="high">高（水面倒影）</option><option value="low">流畅（老手机）</option></select></div>
+</div>
+
+<div id="joy"><div id="knob"></div></div>
+
+<div id="bottom">
+  <div id="views"></div>
+  <div id="hintRow"><button id="modeBtn" class="card">切换到漫步</button><span id="hint" class="card"></span></div>
+</div>
+
+<!--SCRIPT-->
+</body>
+</html>
